@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Traffic Light Dashboard</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .card { border: 1px solid #ccc; border-radius: 10px; padding: 15px; margin: 10px 0; }
+    .light {
+      width: 80px; height: 80px; border-radius: 50%; margin: 10px auto;
+      background: gray;
+    }
+    button { margin: 5px; padding: 10px 16px; }
+  </style>
+</head>
+<body>
+  <h1>Smart Traffic Light Dashboard</h1>
+
+  <div class="card">
+    <h3>ESP32 Status: <span id="esp32Status">offline</span></h3>
+    <p>Mode: <span id="mode">-</span></p>
+    <p>Vehicle Count: <span id="vehicleCount">0</span></p>
+    <p>Pedestrian Waiting: <span id="pedestrian">false</span></p>
+    <p>Emergency: <span id="emergency">false</span></p>
+    <p>Last Update: <span id="timestamp">-</span></p>
+    <div id="light" class="light"></div>
+  </div>
+
+  <div class="card">
+    <h3>Controls</h3>
+    <button onclick="sendCommand({action:'set_mode', value:'auto'})">Auto</button>
+    <button onclick="sendCommand({action:'set_mode', value:'manual'})">Manual</button>
+    <button onclick="sendCommand({action:'set_light', value:'red'})">Red</button>
+    <button onclick="sendCommand({action:'set_light', value:'yellow'})">Yellow</button>
+    <button onclick="sendCommand({action:'set_light', value:'green'})">Green</button>
+  </div>
+
+  <div class="card">
+    <h3>Alerts</h3>
+    <ul id="alerts"></ul>
+  </div>
+
+  <script>
+    const socket = io();
+
+    socket.on("trafficUpdate", (data) => {
+      document.getElementById("esp32Status").innerText = data.esp32_status;
+      document.getElementById("mode").innerText = data.mode;
+      document.getElementById("vehicleCount").innerText = data.vehicle_count;
+      document.getElementById("pedestrian").innerText = data.pedestrian_waiting;
+      document.getElementById("emergency").innerText = data.emergency;
+      document.getElementById("timestamp").innerText = data.timestamp;
+
+      const light = document.getElementById("light");
+      light.style.background = data.light || "gray";
+    });
+
+    socket.on("trafficAlert", (alert) => {
+      const li = document.createElement("li");
+      li.textContent = JSON.stringify(alert);
+      document.getElementById("alerts").prepend(li);
+    });
+
+    async function sendCommand(command) {
+      await fetch("/api/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(command)
+      });
+    }
+  </script>
+</body>
+</html>
