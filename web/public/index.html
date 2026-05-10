@@ -90,6 +90,14 @@
     #commandStatus {
       font-weight: bold;
     }
+
+    model-viewer {
+      width: 100%;
+      height: 400px;
+      background-color: #f4f4f4;
+      border-radius: 8px;
+    }
+  
   </style>
 </head>
 <body>
@@ -103,6 +111,17 @@
     <p>Mode: <span id="mode">unknown</span></p>
     <p>Phase: <span id="phase">unknown</span></p>
     <p>Last Update: <span id="timestamp">-</span></p>
+  </div>
+
+  <div class="card">
+    <h3>3D Intersection Map</h3>
+    <model-viewer 
+      src="Landscape.glb" 
+      alt="3D model of the traffic intersection" 
+      camera-controls 
+      auto-rotate 
+      shadow-intensity="1">
+    </model-viewer>
   </div>
 
   <div class="card">
