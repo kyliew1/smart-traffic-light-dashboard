@@ -33,6 +33,9 @@ let latestData = {
   esp32_status: "offline"
 };
 
+let lastHeartbeatTime = null;
+const ESP32_TIMEOUT_MS = 10000;
+
 mqttClient.on("connect", () => {
   console.log("Connected to Mosquitto");
   mqttClient.subscribe(`${MQTT_TOPIC_PREFIX}/#`);
@@ -43,11 +46,13 @@ mqttClient.on("message", (topic, message) => {
     const payload = JSON.parse(message.toString());
 
     if (topic === `${MQTT_TOPIC_PREFIX}/status`) {
+      lastHeartbeatTime = Date.now();
       latestData = { ...latestData, ...payload, esp32_status: "online" };
       io.emit("trafficUpdate", latestData);
     }
 
     if (topic === `${MQTT_TOPIC_PREFIX}/heartbeat`) {
+      lastHeartbeatTime = Date.now();
       latestData.esp32_status = "online";
       io.emit("trafficUpdate", latestData);
     }
@@ -59,6 +64,19 @@ mqttClient.on("message", (topic, message) => {
     console.error("Invalid JSON:", err.message);
   }
 });
+
+setInterval(() => {
+  if (!lastHeartbeatTime) return;
+
+  const timeSinceLastHeartbeat = Date.now() - lastHeartbeatTime;
+
+  if (timeSinceLastHeartbeat > ESP32_TIMEOUT_MS && latestData.esp32_status !== "offline") {
+    latestData.esp32_status = "offline";
+    io.emit("trafficUpdate", latestData);
+    console.log("ESP32 is offline");
+  }
+}, 1000);
+
 
 app.get("/api/status", (req, res) => {
   res.json(latestData);
