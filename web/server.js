@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -10,9 +12,15 @@ const io = new Server(server);
 app.use(express.static("public"));
 app.use(express.json());
 
-const mqttClient = mqtt.connect("mqtt://localhost:1883", {
-  username: "dashboard_client",
-  password: "dashboard_password"
+const PORT = process.env.PORT || 3000;
+const MQTT_URL = process.env.MQTT_URL || "mqtt://localhost:1883";
+const MQTT_USERNAME = process.env.MQTT_USERNAME || "dashboard_client";
+const MQTT_PASSWORD = process.env.MQTT_PASSWORD || "dashboard_password";
+const MQTT_TOPIC_PREFIX = process.env.MQTT_TOPIC_PREFIX || "traffic/light1";
+
+const mqttClient = mqtt.connect(MQTT_URL, {
+  username: MQTT_USERNAME,
+  password: MQTT_PASSWORD
 });
 
 let latestData = {
@@ -27,24 +35,24 @@ let latestData = {
 
 mqttClient.on("connect", () => {
   console.log("Connected to Mosquitto");
-  mqttClient.subscribe("traffic/light1/#");
+  mqttClient.subscribe(`${MQTT_TOPIC_PREFIX}/#`);
 });
 
 mqttClient.on("message", (topic, message) => {
   try {
     const payload = JSON.parse(message.toString());
 
-    if (topic === "traffic/light1/status") {
+    if (topic === `${MQTT_TOPIC_PREFIX}/status`) {
       latestData = { ...latestData, ...payload, esp32_status: "online" };
       io.emit("trafficUpdate", latestData);
     }
 
-    if (topic === "traffic/light1/heartbeat") {
+    if (topic === `${MQTT_TOPIC_PREFIX}/heartbeat`) {
       latestData.esp32_status = "online";
       io.emit("trafficUpdate", latestData);
     }
 
-    if (topic === "traffic/light1/alert") {
+    if (topic === `${MQTT_TOPIC_PREFIX}/alert`) {
       io.emit("trafficAlert", payload);
     }
   } catch (err) {
@@ -58,10 +66,10 @@ app.get("/api/status", (req, res) => {
 
 app.post("/api/command", (req, res) => {
   const command = req.body;
-  mqttClient.publish("traffic/light1/command", JSON.stringify(command));
+  mqttClient.publish(`${MQTT_TOPIC_PREFIX}/command`, JSON.stringify(command));
   res.json({ success: true, sent: command });
 });
 
-server.listen(3000, () => {
-  console.log("Web dashboard running at http://localhost:3000");
+server.listen(PORT, () => {
+  console.log(`Web dashboard running at http://localhost:${PORT}`);
 });
