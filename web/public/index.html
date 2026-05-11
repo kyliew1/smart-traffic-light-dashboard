@@ -3,14 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <title>Intersection Traffic Light Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="/socket.io/socket.io.js"></script>
-  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+
+  <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
       background: #f6f7f9;
     }
+
+    #three-scene {
+      width: 100%;
+      height: 550px;
+      background: #111827;
+      border-radius: 16px;
+      overflow: hidden;
+      margin-top: 20px;
+    }  
 
     .card {
       background: white;
@@ -91,13 +110,6 @@
     #commandStatus {
       font-weight: bold;
     }
-
-    model-viewer {
-      width: 100%;
-      height: 400px;
-      background-color: #f4f4f4;
-      border-radius: 8px;
-    }
   
   </style>
 </head>
@@ -114,16 +126,9 @@
     <p>Last Update: <span id="timestamp">-</span></p>
   </div>
 
-  <div class="card">
-    <h3>3D Intersection Map</h3>
-    <model-viewer 
-      src="Landscape.glb" 
-      alt="3D model of the traffic intersection" 
-      camera-controls 
-      auto-rotate 
-      shadow-intensity="1">
-    </model-viewer>
-  </div>
+  <div id="three-scene"></div>
+
+  <script type="module" src="/js/traffic-three.js"></script>
 
   <div class="card">
     <h3>Intersections</h3>
@@ -222,6 +227,11 @@
       setIntersectionLight(2, intersections["2"] || intersections[2]);
       setIntersectionLight(3, intersections["3"] || intersections[3]);
       setIntersectionLight(4, intersections["4"] || intersections[4]);
+
+      if (window.updateTraffic3D) {
+        window.updateTraffic3D(intersections);
+      }
+      
     }
 
     socket.on("trafficUpdate", updateDashboard);
