@@ -44,7 +44,7 @@ controls.enablePan = true;
 controls.panSpeed = 0.5;
 
 controls.enableZoom = true;
-controls.zoomSpeed = 1.0;
+controls.zoomSpeed = 0.3;
 
 controls.minDistance = 4;
 controls.maxDistance = 25;
@@ -326,13 +326,13 @@ function setTrafficLight3D(id, state) {
 
 createTrafficLight3D(1, -2.8 , -1.4, Math.PI /2);
 createTrafficLight3D(2, 1.4, -2.8, 0);
-createTrafficLight3D(3, -1.4, 2.8, Math.PI);
-createTrafficLight3D(4, 2.8, 1.4, -Math.PI / 2);
+createTrafficLight3D(3, 2.8, 1.4, -Math.PI/2);
+createTrafficLight3D(4, -1.4, 2.8, Math.PI);
 
 createLabel("Light 1 North", -2.8, 3.4, -1.4);
 createLabel("Light 2 East", 1.4, 3.4, -2.8);
-createLabel("Light 3 West", -1.4, 3.4, 2.8);
-createLabel("Light 4 South", 2.8, 3.4, 1.4);
+createLabel("Light 4 West", -1.4, 3.4, 2.8);
+createLabel("Light 3 South", 2.8, 3.4, 1.4);
 
 // Default states
 setTrafficLight3D(1, "RED");

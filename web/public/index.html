@@ -1,274 +1,791 @@
 <!DOCTYPE html>
-<html>
+<html class="dark" lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
   <title>Intersection Traffic Light Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <script src="/socket.io/socket.io.js"></script>
 
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Geist:wght@500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
   <script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
   }
-}
-</script>
+  </script>
+
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "background": "#10131c",
+            "surface": "#10131c",
+            "surface-container-lowest": "#0b0e16",
+            "surface-container-low": "#191b24",
+            "surface-container": "#1d1f28",
+            "surface-container-high": "#272a33",
+            "surface-container-highest": "#32343e",
+            "surface-variant": "#32343e",
+            "on-background": "#e1e2ee",
+            "on-surface": "#e1e2ee",
+            "on-surface-variant": "#c2c6d8",
+            "outline": "#8c90a1",
+            "outline-variant": "#424656",
+            "primary": "#b3c5ff",
+            "primary-container": "#0066ff",
+            "on-primary": "#002b75",
+            "on-primary-container": "#f8f7ff",
+            "secondary": "#b7c8e1",
+            "secondary-container": "#3a4a5f",
+            "on-secondary-container": "#a9bad3",
+            "tertiary": "#ffb59d",
+            "tertiary-container": "#cc4204",
+            "error": "#ffb4ab",
+            "error-container": "#93000a",
+            "on-error": "#690005",
+            "on-error-container": "#ffdad6"
+          },
+          borderRadius: {
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          spacing: {
+            "margin-mobile": "16px",
+            "container-max": "1440px",
+            "gutter": "24px",
+            "margin-desktop": "32px"
+          },
+          fontFamily: {
+            "label-caps": ["Inter"],
+            "display-lg": ["Inter"],
+            "body-md": ["Inter"],
+            "data-mono": ["Geist"],
+            "headline-md": ["Inter"]
+          },
+          fontSize: {
+            "label-caps": ["12px", { lineHeight: "1", letterSpacing: "0.05em", fontWeight: "700" }],
+            "display-lg": ["48px", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "700" }],
+            "body-md": ["16px", { lineHeight: "1.6", fontWeight: "400" }],
+            "data-mono": ["14px", { lineHeight: "1.4", letterSpacing: "0.02em", fontWeight: "500" }],
+            "headline-md": ["24px", { lineHeight: "1.3", fontWeight: "600" }]
+          }
+        }
+      }
+    };
+  </script>
 
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      background: #f6f7f9;
+    .glass-card {
+      background: rgba(29, 31, 40, 0.72);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+      border-left: 1px solid rgba(255, 255, 255, 0.05);
+      border-right: 1px solid rgba(255, 255, 255, 0.05);
     }
 
-    #three-scene {
-      width: 100%;
-      height: 550px;
-      background: #111827;
-      border-radius: 16px;
-      overflow: hidden;
-      margin-top: 20px;
-    }  
-
-    .card {
-      background: white;
-      border: 1px solid #ddd;
-      border-radius: 12px;
-      padding: 16px;
-      margin: 12px 0;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    .mode-button.active {
+      background: #0066ff;
+      color: #f8f7ff;
+      border-color: #b3c5ff;
+      box-shadow: 0 0 0 2px rgba(179, 197, 255, 0.25), 0 0 24px rgba(0, 102, 255, 0.4);
     }
 
-    .status-online {
-      color: green;
-      font-weight: bold;
+    .mode-button.pending {
+      opacity: 0.55;
+      pointer-events: none;
     }
 
-    .status-offline {
-      color: red;
-      font-weight: bold;
+    .danger-pulse {
+      animation: dangerPulse 1s infinite;
     }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
+    @keyframes dangerPulse {
+      0% {
+        box-shadow: 0 0 0 rgba(255, 180, 171, 0.1);
+      }
+
+      50% {
+        box-shadow: 0 0 24px rgba(255, 180, 171, 0.65);
+      }
+
+      100% {
+        box-shadow: 0 0 0 rgba(255, 180, 171, 0.1);
+      }
     }
 
-    .intersection {
-      text-align: center;
+    .feed-scroll::-webkit-scrollbar {
+      width: 6px;
     }
 
-    .traffic-light {
-      width: 70px;
-      background: #222;
-      border-radius: 20px;
-      padding: 10px;
-      margin: 10px auto;
+    .feed-scroll::-webkit-scrollbar-thumb {
+      background: #424656;
+      border-radius: 999px;
     }
 
-    .bulb {
-      width: 45px;
-      height: 45px;
-      border-radius: 50%;
-      margin: 8px auto;
-      background: #555;
-      opacity: 0.25;
+    #three-scene canvas {
+      display: block;
     }
-
-    .red.active {
-      background: red;
-      opacity: 1;
-    }
-
-    .yellow.active {
-      background: gold;
-      opacity: 1;
-    }
-
-    .green.active {
-      background: limegreen;
-      opacity: 1;
-    }
-
-    button {
-      margin: 5px;
-      padding: 10px 16px;
-      border: 0;
-      border-radius: 8px;
-      cursor: pointer;
-      background: #1f6feb;
-      color: white;
-      font-weight: bold;
-    }
-
-    button:hover {
-      opacity: 0.9;
-    }
-
-    #commandStatus {
-      font-weight: bold;
-    }
-  
   </style>
 </head>
-<body>
-  <h1>Intersection Traffic Light Dashboard</h1>
 
-  <div class="card">
-    <h3>
-      ESP32 Status:
-      <span id="esp32Status" class="status-offline">offline</span>
-    </h3>
-    <p>Mode: <span id="mode">unknown</span></p>
-    <p>Phase: <span id="phase">unknown</span></p>
-    <p>Last Update: <span id="timestamp">-</span></p>
-  </div>
+<body class="bg-background text-on-background min-h-screen font-body-md text-body-md overflow-x-hidden">
 
-  <div id="three-scene"></div>
-
-  <script type="module" src="/js/traffic-three.js"></script>
-
-  <div class="card">
-    <h3>Intersections</h3>
-
-    <div class="grid">
-      <div class="intersection">
-        <h4>Intersection 1</h4>
-        <div class="traffic-light" data-intersection="1">
-          <div class="bulb red"></div>
-          <div class="bulb yellow"></div>
-          <div class="bulb green"></div>
-        </div>
-        <p id="state1">RED</p>
+  <nav class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-mobile md:px-margin-desktop h-16 bg-surface/60 backdrop-blur-xl border-b border-outline-variant/30 shadow-sm">
+    <div class="flex items-center gap-8">
+      <div class="font-headline-md text-headline-md font-bold text-primary tracking-tight">
+        TRAFFIC COMMAND
       </div>
 
-      <div class="intersection">
-        <h4>Intersection 2</h4>
-        <div class="traffic-light" data-intersection="2">
-          <div class="bulb red"></div>
-          <div class="bulb yellow"></div>
-          <div class="bulb green"></div>
-        </div>
-        <p id="state2">RED</p>
-      </div>
-
-      <div class="intersection">
-        <h4>Intersection 3</h4>
-        <div class="traffic-light" data-intersection="3">
-          <div class="bulb red"></div>
-          <div class="bulb yellow"></div>
-          <div class="bulb green"></div>
-        </div>
-        <p id="state3">RED</p>
-      </div>
-
-      <div class="intersection">
-        <h4>Intersection 4</h4>
-        <div class="traffic-light" data-intersection="4">
-          <div class="bulb red"></div>
-          <div class="bulb yellow"></div>
-          <div class="bulb green"></div>
-        </div>
-        <p id="state4">RED</p>
+      <div class="hidden md:flex gap-6 items-center">
+        <a class="text-primary font-bold border-b-2 border-primary pb-1 hover:bg-white/5 hover:text-primary transition-colors" href="#">Dashboard</a>
+        <a class="text-on-surface-variant font-medium hover:bg-white/5 hover:text-primary transition-colors" href="#visionPanel">Analytics</a>
+        <a class="text-on-surface-variant font-medium hover:bg-white/5 hover:text-primary transition-colors" href="#feedPanel">Logs</a>
       </div>
     </div>
-  </div>
 
-  <div class="card">
-    <h3>Controls</h3>
-    <button onclick="sendCommand('normal')">Normal Sequential</button>
-    <button onclick="sendCommand('two_way')">Two-way Opposing</button>
-    <button onclick="sendCommand('all_red')">All Red</button>
-    <button onclick="sendCommand('emergency')">Emergency Flash</button>
-    <p id="commandStatus"></p>
-  </div>
+    <div class="flex items-center gap-4">
+      <span class="text-on-surface-variant font-label-caps text-label-caps">
+        System:
+        <span id="topSystemStatus" class="text-error">Offline</span>
+      </span>
 
-  <div class="card">
-    <h3>Alerts</h3>
-    <ul id="alerts"></ul>
-  </div>
+      <div class="flex gap-2">
+        <button class="p-2 text-on-surface-variant hover:text-primary transition-colors" onclick="addFeed('SYS', 'Notification panel opened')">
+          <span class="material-symbols-outlined">notifications</span>
+        </button>
+
+        <button class="p-2 text-on-surface-variant hover:text-primary transition-colors" onclick="toggleTheme()">
+          <span class="material-symbols-outlined">contrast</span>
+        </button>
+
+        <button class="p-2 text-on-surface-variant hover:text-primary transition-colors" onclick="addFeed('SYS', 'Settings button clicked')">
+          <span class="material-symbols-outlined">settings</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <aside class="hidden xl:flex fixed left-0 top-16 h-[calc(100vh-64px)] w-[280px] bg-surface-container/80 backdrop-blur-lg border-r border-outline-variant/20 shadow-xl flex-col p-4 gap-2 z-40">
+    <div class="mb-6 px-4">
+      <h2 class="font-headline-md text-headline-md font-bold text-primary">Traffic Ops</h2>
+      <p class="text-on-surface-variant font-data-mono text-data-mono">Makerthon 2026 - Active</p>
+    </div>
+
+    <div class="flex-1 flex flex-col gap-2">
+      <a class="flex items-center gap-3 px-4 py-3 bg-secondary-container text-on-secondary-container font-bold rounded-lg transition-transform hover:bg-surface-container-highest" href="#">
+        <span class="material-symbols-outlined">map</span>
+        <span class="font-label-caps text-label-caps">Map View</span>
+      </a>
+
+      <a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest rounded-lg transition-all duration-200" href="#intersectionPanel">
+        <span class="material-symbols-outlined">traffic</span>
+        <span class="font-label-caps text-label-caps">Intersections</span>
+      </a>
+
+      <a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest rounded-lg transition-all duration-200" href="#commandPanel">
+        <span class="material-symbols-outlined">touch_app</span>
+        <span class="font-label-caps text-label-caps">Command Center</span>
+      </a>
+
+      <a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest rounded-lg transition-all duration-200" href="#adasPanel">
+        <span class="material-symbols-outlined">warning</span>
+        <span class="font-label-caps text-label-caps">Safety Alerts</span>
+      </a>
+
+      <a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest rounded-lg transition-all duration-200" href="#feedPanel">
+        <span class="material-symbols-outlined">history</span>
+        <span class="font-label-caps text-label-caps">System Logs</span>
+      </a>
+    </div>
+
+    <div class="mt-auto flex flex-col gap-2 pt-4 border-t border-outline-variant/20">
+      <button onclick="sendCommand('all_red')" class="w-full py-3 bg-error text-on-error font-label-caps text-label-caps rounded-lg hover:bg-error-container hover:text-on-error-container transition-colors shadow-lg">
+        Emergency Override
+      </button>
+    </div>
+  </aside>
+
+  <main class="pt-20 xl:ml-[280px] min-h-screen flex flex-col gap-6 p-margin-mobile md:p-margin-desktop w-full xl:w-[calc(100%-280px)] max-w-none">
+
+    <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h1 class="font-display-lg text-display-lg text-on-surface">Intersection Dashboard</h1>
+        <p class="text-on-surface-variant font-data-mono text-data-mono mt-1">Live Telemetry, YOLO Detection & ESP32 Control</p>
+      </div>
+
+      <div class="flex flex-wrap gap-3">
+        <div class="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant/30 shadow-sm">
+          <div id="esp32Dot" class="w-2 h-2 rounded-full bg-red-400 animate-pulse"></div>
+          <span class="font-label-caps text-label-caps text-on-surface" id="esp32Status">Offline</span>
+        </div>
+
+        <div class="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant/30 shadow-sm">
+          <span class="material-symbols-outlined text-sm text-primary">settings_suggest</span>
+          <span class="font-label-caps text-label-caps text-on-surface" id="modeDisplay">Mode Unknown</span>
+        </div>
+
+        <div class="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant/30 shadow-sm">
+          <span class="material-symbols-outlined text-sm text-secondary">cycle</span>
+          <span class="font-label-caps text-label-caps text-on-surface" id="phaseDisplay">Phase Unknown</span>
+        </div>
+
+        <div class="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant/30 shadow-sm">
+          <span class="material-symbols-outlined text-sm text-tertiary">schedule</span>
+          <span class="font-label-caps text-label-caps text-on-surface" id="timestampDisplay">-</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 auto-rows-min">
+
+      <div class="lg:col-span-8 glass-card rounded-xl p-4 flex flex-col min-h-[560px] shadow-xl relative overflow-hidden group">
+        <div class="flex justify-between items-center mb-4 z-10">
+          <h2 class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary">3d_rotation</span>
+            Digital Twin
+          </h2>
+
+          <span class="font-data-mono text-data-mono text-on-surface-variant" id="digitalTwinStatus">Ready</span>
+        </div>
+
+        <div class="flex-1 w-full min-h-[500px] rounded-lg bg-surface-container-lowest border border-outline-variant/20 relative overflow-hidden" id="three-scene"></div>
+      </div>
+
+      <div class="lg:col-span-3 flex flex-col gap-6">
+
+        <div id="adasPanel" class="glass-card rounded-xl p-5 shadow-lg border-l-4 border-outline-variant" id="adasCard">
+          <h3 class="font-label-caps text-label-caps text-on-surface-variant mb-4 flex items-center gap-2">
+            <span class="material-symbols-outlined text-error">gpp_maybe</span>
+            ADAS Alerts
+          </h3>
+
+          <div class="flex flex-col gap-3">
+            <div class="flex justify-between items-center p-3 bg-surface-container-highest rounded-lg border border-error/20">
+              <span class="font-data-mono text-data-mono text-on-surface">Accident Detected</span>
+              <span class="px-2 py-1 bg-surface-container rounded text-primary font-label-caps text-[10px]" id="accidentStatus">Clear</span>
+            </div>
+
+            <div class="flex justify-between items-center p-3 bg-surface-container-highest rounded-lg border border-tertiary/20">
+              <span class="font-data-mono text-data-mono text-on-surface">Near Miss</span>
+              <span class="px-2 py-1 bg-surface-container rounded text-primary font-label-caps text-[10px]" id="nearMissStatus">Clear</span>
+            </div>
+
+            <div class="p-3 bg-surface-container-highest rounded-lg border border-outline-variant/20">
+              <div class="font-label-caps text-label-caps text-on-surface-variant mb-1">Recommended Action</div>
+              <div id="recommendationText" class="font-data-mono text-data-mono text-on-surface">
+                Waiting for camera data.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="commandPanel" class="glass-card rounded-xl p-5 shadow-lg flex-1">
+          <h3 class="font-label-caps text-label-caps text-on-surface-variant mb-4 flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary">touch_app</span>
+            Command Center
+          </h3>
+
+          <div class="mb-4 p-3 rounded-lg bg-surface-container-highest border border-primary/20">
+            <div class="font-label-caps text-label-caps text-on-surface-variant mb-1">Current Active Mode</div>
+            <div id="currentModeDisplay" class="font-headline-md text-headline-md text-primary">UNKNOWN</div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <button data-mode="automatic" class="mode-button py-3 px-4 bg-surface-container-highest text-on-surface font-label-caps text-label-caps rounded-lg hover:bg-surface-variant transition-all border border-outline-variant/30 shadow-md flex flex-col items-center gap-1" onclick="sendCommand('automatic')">
+              <span class="material-symbols-outlined">smart_toy</span>
+              AI Mode
+            </button>
+
+            <button data-mode="normal" class="mode-button py-3 px-4 bg-surface-container-highest text-on-surface font-label-caps text-label-caps rounded-lg hover:bg-surface-variant transition-all border border-outline-variant/30 flex flex-col items-center gap-1" onclick="sendCommand('normal')">
+              <span class="material-symbols-outlined">sync</span>
+              Normal
+            </button>
+
+            <button data-mode="two_way" class="mode-button py-3 px-4 bg-surface-container-highest text-on-surface font-label-caps text-label-caps rounded-lg hover:bg-surface-variant transition-all border border-outline-variant/30 col-span-2 flex justify-center items-center gap-2" onclick="sendCommand('two_way')">
+              <span class="material-symbols-outlined">compare_arrows</span>
+              Two-Way Opposing
+            </button>
+
+            <button data-mode="all_red" class="mode-button py-3 px-4 bg-surface-container-highest text-error font-label-caps text-label-caps rounded-lg hover:bg-error-container hover:text-on-error-container transition-all border border-error/30 col-span-2 flex justify-center items-center gap-2" onclick="sendCommand('all_red')">
+              <span class="material-symbols-outlined">stop_circle</span>
+              All Red Safety Stop
+            </button>
+
+            <button data-mode="emergency" class="mode-button py-3 px-4 bg-surface-container-highest text-tertiary font-label-caps text-label-caps rounded-lg hover:bg-tertiary-container hover:text-on-surface transition-all border border-tertiary/30 col-span-2 flex justify-center items-center gap-2" onclick="sendCommand('emergency')">
+              <span class="material-symbols-outlined">emergency_home</span>
+              Emergency Flash
+            </button>
+          </div>
+
+          <div class="mt-4 p-3 rounded-lg bg-surface-container-highest border border-outline-variant/20">
+            <div class="font-label-caps text-label-caps text-on-surface-variant mb-1">Command Status</div>
+            <div id="commandStatus" class="font-data-mono text-data-mono text-on-surface">No command sent yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="intersectionPanel" class="lg:col-span-12 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="glass-card rounded-xl p-4 shadow-lg">
+          <div class="font-label-caps text-label-caps text-on-surface-variant mb-2">Intersection 1</div>
+          <div id="state1" class="font-headline-md text-headline-md text-error">RED</div>
+          <div class="font-data-mono text-data-mono text-on-surface-variant">North Bound</div>
+        </div>
+
+        <div class="glass-card rounded-xl p-4 shadow-lg">
+          <div class="font-label-caps text-label-caps text-on-surface-variant mb-2">Intersection 2</div>
+          <div id="state2" class="font-headline-md text-headline-md text-error">RED</div>
+          <div class="font-data-mono text-data-mono text-on-surface-variant">East Bound</div>
+        </div>
+
+        <div class="glass-card rounded-xl p-4 shadow-lg">
+          <div class="font-label-caps text-label-caps text-on-surface-variant mb-2">Intersection 3</div>
+          <div id="state3" class="font-headline-md text-headline-md text-error">RED</div>
+          <div class="font-data-mono text-data-mono text-on-surface-variant">South Bound</div>
+        </div>
+
+        <div class="glass-card rounded-xl p-4 shadow-lg">
+          <div class="font-label-caps text-label-caps text-on-surface-variant mb-2">Intersection 4</div>
+          <div id="state4" class="font-headline-md text-headline-md text-error">RED</div>
+          <div class="font-data-mono text-data-mono text-on-surface-variant">West Bound</div>
+        </div>
+      </div>
+
+      <div id="visionPanel" class="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <div class="glass-card rounded-xl p-5 shadow-lg">
+          <h3 class="font-label-caps text-label-caps text-on-surface-variant mb-4 flex items-center gap-2">
+            <span class="material-symbols-outlined text-secondary">visibility</span>
+            Computer Vision Density
+          </h3>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="bg-surface-container p-3 rounded-lg border border-outline-variant/20">
+              <div class="flex justify-between items-center mb-2">
+                <span class="font-data-mono text-data-mono text-on-surface">North Bound</span>
+                <span class="font-headline-md text-headline-md text-primary" id="vehicle1">0</span>
+              </div>
+              <div class="w-full bg-surface-container-highest rounded-full h-1.5">
+                <div id="vehicleBar1" class="bg-primary h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <div class="bg-surface-container p-3 rounded-lg border border-outline-variant/20">
+              <div class="flex justify-between items-center mb-2">
+                <span class="font-data-mono text-data-mono text-on-surface">South Bound</span>
+                <span class="font-headline-md text-headline-md text-primary" id="vehicle3">0</span>
+              </div>
+              <div class="w-full bg-surface-container-highest rounded-full h-1.5">
+                <div id="vehicleBar3" class="bg-primary h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <div class="bg-surface-container p-3 rounded-lg border border-outline-variant/20">
+              <div class="flex justify-between items-center mb-2">
+                <span class="font-data-mono text-data-mono text-on-surface">East Bound</span>
+                <span class="font-headline-md text-headline-md text-secondary" id="vehicle2">0</span>
+              </div>
+              <div class="w-full bg-surface-container-highest rounded-full h-1.5">
+                <div id="vehicleBar2" class="bg-secondary h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <div class="bg-surface-container p-3 rounded-lg border border-outline-variant/20">
+              <div class="flex justify-between items-center mb-2">
+                <span class="font-data-mono text-data-mono text-on-surface">West Bound</span>
+                <span class="font-headline-md text-headline-md text-secondary" id="vehicle4">0</span>
+              </div>
+              <div class="w-full bg-surface-container-highest rounded-full h-1.5">
+                <div id="vehicleBar4" class="bg-secondary h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 mt-4">
+            <div class="bg-surface-container-highest p-3 rounded-lg border border-outline-variant/20">
+              <div class="font-label-caps text-label-caps text-on-surface-variant">Camera Current Phase</div>
+              <div id="cameraCurrentPhase" class="font-data-mono text-data-mono text-on-surface">-</div>
+            </div>
+
+            <div class="bg-surface-container-highest p-3 rounded-lg border border-outline-variant/20">
+              <div class="font-label-caps text-label-caps text-on-surface-variant">Camera Target Phase</div>
+              <div id="cameraTargetPhase" class="font-data-mono text-data-mono text-on-surface">-</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="feedPanel" class="glass-card rounded-xl p-5 shadow-lg flex flex-col h-full max-h-[420px]">
+          <h3 class="font-label-caps text-label-caps text-on-surface-variant mb-4 flex items-center gap-2">
+            <span class="material-symbols-outlined text-tertiary">list_alt</span>
+            Intelligence Feed
+          </h3>
+
+          <div id="intelligenceFeed" class="feed-scroll flex-1 overflow-y-auto pr-2 space-y-3 font-data-mono text-data-mono">
+            <div class="flex gap-3 text-on-surface border-b border-outline-variant/10 pb-2">
+              <span class="text-outline">--:--:--</span>
+              <span class="text-primary">[SYS]</span>
+              <span>Dashboard initialized.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="/js/traffic-three.js"></script>
 
   <script>
     const socket = io();
 
-    function setIntersectionLight(number, state) {
-      const normalized = String(state || "RED").toUpperCase();
-      const trafficLight = document.querySelector(`[data-intersection="${number}"]`);
+    const MAX_FEED_ITEMS = 20;
+    const MAX_VEHICLES_FOR_BAR = 20;
 
-      trafficLight.querySelectorAll(".bulb").forEach((bulb) => {
-        bulb.classList.remove("active");
+    let lastMode = null;
+    let lastPhase = null;
+    let lastEsp32Status = null;
+    let lastAccidentState = false;
+    let lastNearMissState = false;
+    let lastTargetPhase = null;
+
+    function getTime() {
+      return new Date().toLocaleTimeString();
+    }
+
+    function formatMode(mode) {
+      return String(mode || "unknown").replaceAll("_", " ").toUpperCase();
+    }
+
+    function addFeed(type, message) {
+      const feed = document.getElementById("intelligenceFeed");
+      if (!feed) return;
+
+      const typeColor =
+        type === "ERR" ? "text-error" :
+        type === "CV" ? "text-secondary" :
+        type === "CMD" ? "text-tertiary" :
+        "text-primary";
+
+      const row = document.createElement("div");
+      row.className = "flex gap-3 text-on-surface border-b border-outline-variant/10 pb-2";
+
+      row.innerHTML = `
+        <span class="text-outline">${getTime()}</span>
+        <span class="${typeColor}">[${type}]</span>
+        <span>${message}</span>
+      `;
+
+      feed.prepend(row);
+
+      while (feed.children.length > MAX_FEED_ITEMS) {
+        feed.removeChild(feed.lastChild);
+      }
+    }
+
+    function toggleTheme() {
+      document.documentElement.classList.toggle("dark");
+      const isDark = document.documentElement.classList.contains("dark");
+      localStorage.setItem("trafficDashboardTheme", isDark ? "dark" : "light");
+    }
+
+    function loadTheme() {
+      const saved = localStorage.getItem("trafficDashboardTheme");
+      if (saved === "light") {
+        document.documentElement.classList.remove("dark");
+      } else {
+        document.documentElement.classList.add("dark");
+      }
+    }
+
+    function setModeHighlight(mode) {
+      const normalizedMode = String(mode || "unknown").toLowerCase();
+
+      document.getElementById("currentModeDisplay").innerText = formatMode(normalizedMode);
+      document.getElementById("modeDisplay").innerText = formatMode(normalizedMode);
+
+      document.querySelectorAll(".mode-button").forEach((button) => {
+        button.classList.remove("active");
+        if (button.dataset.mode === normalizedMode) {
+          button.classList.add("active");
+        }
       });
+    }
+
+    function setEsp32Status(statusValue) {
+      const normalized = String(statusValue || "offline").toLowerCase();
+      const isOnline = normalized === "online" || normalized === "connected";
+
+      const esp32Status = document.getElementById("esp32Status");
+      const topSystemStatus = document.getElementById("topSystemStatus");
+      const dot = document.getElementById("esp32Dot");
+
+      esp32Status.innerText = isOnline ? "Connected" : "Offline";
+      topSystemStatus.innerText = isOnline ? "Online" : "Offline";
+
+      topSystemStatus.className = isOnline ? "text-emerald-400" : "text-error";
+      dot.className = isOnline
+        ? "w-2 h-2 rounded-full bg-emerald-400 animate-pulse"
+        : "w-2 h-2 rounded-full bg-red-400 animate-pulse";
+    }
+
+    function setVehicleBar(id, count) {
+      const bar = document.getElementById(id);
+      if (!bar) return;
+
+      const value = Number(count) || 0;
+      const percent = Math.min((value / MAX_VEHICLES_FOR_BAR) * 100, 100);
+
+      bar.style.width = `${percent}%`;
+    }
+
+    function setIntersectionState(number, state) {
+      const el = document.getElementById(`state${number}`);
+      if (!el) return;
+
+      const normalized = String(state || "RED").toUpperCase();
+      el.innerText = normalized;
+
+      el.classList.remove("text-error", "text-tertiary", "text-emerald-400", "text-on-surface");
 
       if (normalized === "RED") {
-        trafficLight.querySelector(".red").classList.add("active");
+        el.classList.add("text-error");
       } else if (normalized === "YELLOW") {
-        trafficLight.querySelector(".yellow").classList.add("active");
+        el.classList.add("text-tertiary");
       } else if (normalized === "GREEN") {
-        trafficLight.querySelector(".green").classList.add("active");
+        el.classList.add("text-emerald-400");
+      } else {
+        el.classList.add("text-on-surface");
+      }
+    }
+
+    function updateRecommendation(camera) {
+      const recommendationText = document.getElementById("recommendationText");
+      const adasCard = document.getElementById("adasPanel");
+
+      if (!camera) {
+        recommendationText.innerText = "Waiting for camera data.";
+        return;
       }
 
-      document.getElementById(`state${number}`).innerText = normalized;
+      const vehicleCount = camera.vehicle_count || {};
+      const controlLogic = camera.control_logic || {};
+      const adasStatus = camera.adas_status || {};
+
+      const v1 = Number(vehicleCount["1"] ?? vehicleCount[1] ?? 0);
+      const v2 = Number(vehicleCount["2"] ?? vehicleCount[2] ?? 0);
+      const v3 = Number(vehicleCount["3"] ?? vehicleCount[3] ?? 0);
+      const v4 = Number(vehicleCount["4"] ?? vehicleCount[4] ?? 0);
+
+      const directions = [
+        { label: "North", count: v1 },
+        { label: "East", count: v2 },
+        { label: "South", count: v3 },
+        { label: "West", count: v4 }
+      ];
+
+      const busiest = directions.reduce((max, item) => item.count > max.count ? item : max, directions[0]);
+
+      adasCard.classList.remove("danger-pulse", "border-error", "border-tertiary", "border-outline-variant");
+
+      if (adasStatus.accident_detected) {
+        recommendationText.innerText = "Accident detected. Recommended action: switch to All Red and inspect the intersection immediately.";
+        adasCard.classList.add("danger-pulse", "border-error");
+      } else if (adasStatus.near_miss_warning) {
+        recommendationText.innerText = "Near miss detected. Recommended action: monitor the intersection and avoid rapid phase switching.";
+        adasCard.classList.add("border-tertiary");
+      } else if (controlLogic.target_phase) {
+        recommendationText.innerText = `Camera recommends phase ${controlLogic.target_phase}. Highest detected traffic: ${busiest.label} with ${busiest.count} vehicle(s).`;
+        adasCard.classList.add("border-outline-variant");
+      } else {
+        recommendationText.innerText = `System normal. Highest detected traffic: ${busiest.label} with ${busiest.count} vehicle(s).`;
+        adasCard.classList.add("border-outline-variant");
+      }
+    }
+
+    function updateCameraDisplay(camera) {
+      if (!camera) return;
+
+      const vehicleCount = camera.vehicle_count || {};
+      const controlLogic = camera.control_logic || {};
+      const adasStatus = camera.adas_status || {};
+
+      const v1 = vehicleCount["1"] ?? vehicleCount[1] ?? 0;
+      const v2 = vehicleCount["2"] ?? vehicleCount[2] ?? 0;
+      const v3 = vehicleCount["3"] ?? vehicleCount[3] ?? 0;
+      const v4 = vehicleCount["4"] ?? vehicleCount[4] ?? 0;
+
+      document.getElementById("vehicle1").innerText = v1;
+      document.getElementById("vehicle2").innerText = v2;
+      document.getElementById("vehicle3").innerText = v3;
+      document.getElementById("vehicle4").innerText = v4;
+
+      setVehicleBar("vehicleBar1", v1);
+      setVehicleBar("vehicleBar2", v2);
+      setVehicleBar("vehicleBar3", v3);
+      setVehicleBar("vehicleBar4", v4);
+
+      document.getElementById("cameraCurrentPhase").innerText = controlLogic.current_phase ?? "-";
+      document.getElementById("cameraTargetPhase").innerText = controlLogic.target_phase ?? "-";
+
+      const accidentDetected = Boolean(adasStatus.accident_detected);
+      const nearMissWarning = Boolean(adasStatus.near_miss_warning);
+
+      const accidentStatus = document.getElementById("accidentStatus");
+      const nearMissStatus = document.getElementById("nearMissStatus");
+
+      accidentStatus.innerText = accidentDetected ? "Detected" : "Clear";
+      nearMissStatus.innerText = nearMissWarning ? "Warning" : "Clear";
+
+      accidentStatus.className = accidentDetected
+        ? "px-2 py-1 bg-error-container rounded text-on-error-container font-label-caps text-[10px]"
+        : "px-2 py-1 bg-surface-container rounded text-primary font-label-caps text-[10px]";
+
+      nearMissStatus.className = nearMissWarning
+        ? "px-2 py-1 bg-tertiary-container rounded text-on-surface font-label-caps text-[10px]"
+        : "px-2 py-1 bg-surface-container rounded text-primary font-label-caps text-[10px]";
+
+      if (controlLogic.target_phase && controlLogic.target_phase !== lastTargetPhase) {
+        addFeed("CV", `Camera target phase received: ${controlLogic.target_phase}`);
+        lastTargetPhase = controlLogic.target_phase;
+      }
+
+      if (accidentDetected && !lastAccidentState) {
+        addFeed("ERR", "Accident detected by camera system.");
+      }
+
+      if (nearMissWarning && !lastNearMissState) {
+        addFeed("CV", "Near miss warning detected by camera system.");
+      }
+
+      lastAccidentState = accidentDetected;
+      lastNearMissState = nearMissWarning;
+
+      updateRecommendation(camera);
     }
 
     function updateDashboard(data) {
-      const status = document.getElementById("esp32Status");
+      if (!data) return;
 
-      status.innerText = data.esp32_status || "offline";
-      status.className = data.esp32_status === "online" ? "status-online" : "status-offline";
+      const espStatus = data.esp32_status || "offline";
+      const mode = data.mode || "unknown";
+      const phase = data.phase || "unknown";
+      const timestamp = data.timestamp || "-";
 
-      document.getElementById("mode").innerText = data.mode || "unknown";
-      document.getElementById("phase").innerText = data.phase || "unknown";
-      document.getElementById("timestamp").innerText = data.timestamp || "-";
+      setEsp32Status(espStatus);
+      setModeHighlight(mode);
+
+      document.getElementById("phaseDisplay").innerText = `Phase ${phase}`;
+      document.getElementById("timestampDisplay").innerText = timestamp;
+
+      if (espStatus !== lastEsp32Status) {
+        addFeed("SYS", `ESP32 status changed to ${espStatus}.`);
+        lastEsp32Status = espStatus;
+      }
+
+      if (mode !== lastMode) {
+        addFeed("SYS", `Mode changed to ${formatMode(mode)}.`);
+        lastMode = mode;
+      }
+
+      if (phase !== lastPhase) {
+        addFeed("SYS", `Phase changed to ${phase}.`);
+        lastPhase = phase;
+      }
 
       const intersections = data.intersections || {};
-      setIntersectionLight(1, intersections["1"] || intersections[1]);
-      setIntersectionLight(2, intersections["2"] || intersections[2]);
-      setIntersectionLight(3, intersections["3"] || intersections[3]);
-      setIntersectionLight(4, intersections["4"] || intersections[4]);
+
+      setIntersectionState(1, intersections["1"] || intersections[1]);
+      setIntersectionState(2, intersections["2"] || intersections[2]);
+      setIntersectionState(3, intersections["3"] || intersections[3]);
+      setIntersectionState(4, intersections["4"] || intersections[4]);
 
       if (window.updateTraffic3D) {
         window.updateTraffic3D(intersections);
+        document.getElementById("digitalTwinStatus").innerText = "Live";
       }
-      
+
+      updateCameraDisplay(data.camera);
     }
 
-    socket.on("trafficUpdate", updateDashboard);
-
-    socket.on("trafficAlert", (alert) => {
-      const li = document.createElement("li");
-      li.textContent = JSON.stringify(alert);
-      document.getElementById("alerts").prepend(li);
-    });
-
     async function sendCommand(mode) {
-      const status = document.getElementById("commandStatus");
+      const commandStatus = document.getElementById("commandStatus");
+
+      commandStatus.innerText = `Sending command: ${formatMode(mode)}...`;
+      addFeed("CMD", `Sending command: ${formatMode(mode)}.`);
+
+      document.querySelectorAll(".mode-button").forEach((button) => {
+        button.classList.add("pending");
+      });
 
       try {
         const res = await fetch("/api/command", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "set_mode", value: mode })
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            action: "set_mode",
+            value: mode
+          })
         });
 
-        const data = await res.json();
+        const result = await res.json();
 
         if (!res.ok) {
-          status.innerText = data.error || "Command failed";
+          const errorMessage = result.error || "Command failed.";
+          commandStatus.innerText = errorMessage;
+          addFeed("ERR", errorMessage);
           return;
         }
 
-        status.innerText = `Command sent: ${mode}`;
+        commandStatus.innerText = `Command sent: ${formatMode(mode)}`;
+        addFeed("CMD", `Command accepted: ${formatMode(mode)}.`);
+
+        setModeHighlight(mode);
       } catch (err) {
-        status.innerText = "Could not send command";
+        commandStatus.innerText = "Could not connect to server API.";
+        addFeed("ERR", "Could not connect to /api/command.");
+      } finally {
+        document.querySelectorAll(".mode-button").forEach((button) => {
+          button.classList.remove("pending");
+        });
       }
     }
 
+    socket.on("trafficUpdate", updateDashboard);
+
+    socket.on("cameraUpdate", (camera) => {
+      updateCameraDisplay(camera);
+    });
+
+    socket.on("trafficAlert", (alert) => {
+      const type = alert.type === "danger" ? "ERR" : alert.type === "warning" ? "CV" : "SYS";
+      const message = alert.message || "Traffic alert received.";
+      const details = alert.details ? ` ${alert.details}` : "";
+      addFeed(type, `${message}${details}`);
+    });
+
+    loadTheme();
+
     fetch("/api/status")
       .then((res) => res.json())
-      .then(updateDashboard)
-      .catch(() => {});
+      .then((data) => {
+        updateDashboard(data);
+        addFeed("SYS", "Initial server status loaded.");
+      })
+      .catch(() => {
+        addFeed("ERR", "Could not fetch initial server status from /api/status.");
+      });
   </script>
 </body>
 </html>

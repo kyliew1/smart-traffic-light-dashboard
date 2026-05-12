@@ -11,6 +11,7 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 app.use(express.json());
+app.get("/favicon.ico", (req, res) => res.status(204).end());
 
 // =========================
 // CONFIG
@@ -23,28 +24,29 @@ const MQTT_PASSWORD = process.env.MQTT_PASSWORD || "";
 const MQTT_TOPIC_PREFIX = process.env.MQTT_TOPIC_PREFIX || "traffic/intersection1";
 
 const ESP32_TIMEOUT_MS = Number(process.env.ESP32_TIMEOUT_MS || 10000);
+const AUTO_PHASE_COMMAND_COOLDOWN_MS = Number(process.env.AUTO_PHASE_COMMAND_COOLDOWN_MS || 2000);
+const AUTO_TARGET_GREEN_TIME_MS = Number(process.env.AUTO_TARGET_GREEN_TIME_MS || 8000);
 
 // =========================
 // MQTT CONNECTION
 // =========================
 const mqttOptions = {};
-
-if (MQTT_USERNAME) {
-  mqttOptions.username = MQTT_USERNAME;
-}
-
-if (MQTT_PASSWORD) {
-  mqttOptions.password = MQTT_PASSWORD;
-}
+if (MQTT_USERNAME) mqttOptions.username = MQTT_USERNAME;
+if (MQTT_PASSWORD) mqttOptions.password = MQTT_PASSWORD;
 
 const mqttClient = mqtt.connect(MQTT_URL, mqttOptions);
 
 // =========================
 // DASHBOARD STATE
 // =========================
+let dashboardMode = "normal";
+let lastHeartbeatTime = null;
+let lastAutomaticTargetPhase = null;
+let lastAutomaticCommandTime = 0;
+
 let latestData = {
   esp32_status: "offline",
-  mode: "unknown",
+  mode: dashboardMode,
   phase: "unknown",
   intersections: {
     1: "RED",
@@ -58,13 +60,14 @@ let latestData = {
       2: 0,
       3: 0,
       4: 0
-    }
+    },
+    control_logic: {},
+    adas_status: {},
+    timestamp: null
   },
   decision: null,
   timestamp: null
 };
-
-let lastHeartbeatTime = null;
 
 // =========================
 // HELPER FUNCTIONS
@@ -86,6 +89,89 @@ function safeJsonParse(topic, message) {
     console.error("Message:", message.toString());
     return null;
   }
+}
+
+function normalizeTargetPhase(targetPhase) {
+  if (!targetPhase) return null;
+
+  const phase = String(targetPhase).trim().toUpperCase();
+
+  const aliases = {
+    NS: "NS_GREEN",
+    NORTH_SOUTH: "NS_GREEN",
+    NORTH_SOUTH_GREEN: "NS_GREEN",
+    NS_GREEN: "NS_GREEN",
+
+    EW: "EW_GREEN",
+    EAST_WEST: "EW_GREEN",
+    EAST_WEST_GREEN: "EW_GREEN",
+    EW_GREEN: "EW_GREEN",
+
+    N: "N_GREEN",
+    NORTH: "N_GREEN",
+    N_GREEN: "N_GREEN",
+    NORTH_GREEN: "N_GREEN",
+
+    E: "E_GREEN",
+    EAST: "E_GREEN",
+    E_GREEN: "E_GREEN",
+    EAST_GREEN: "E_GREEN",
+
+    S: "S_GREEN",
+    SOUTH: "S_GREEN",
+    S_GREEN: "S_GREEN",
+    SOUTH_GREEN: "S_GREEN",
+
+    W: "W_GREEN",
+    WEST: "W_GREEN",
+    W_GREEN: "W_GREEN",
+    WEST_GREEN: "W_GREEN"
+  };
+
+  return aliases[phase] || null;
+}
+
+function handleAutomaticCameraTarget(payload) {
+  if (dashboardMode !== "automatic") return;
+
+  const rawTargetPhase = payload.control_logic?.target_phase;
+  const targetPhase = normalizeTargetPhase(rawTargetPhase);
+
+  if (!targetPhase) {
+    console.log("Automatic mode: ignored unknown target_phase:", rawTargetPhase);
+    return;
+  }
+
+  const now = Date.now();
+  const cooldownReady = now - lastAutomaticCommandTime >= AUTO_PHASE_COMMAND_COOLDOWN_MS;
+
+  // Send if target changed, or repeat occasionally so ESP32 keeps holding the target.
+  const shouldSend = targetPhase !== lastAutomaticTargetPhase || cooldownReady;
+  if (!shouldSend) return;
+
+  const mqttCommand = {
+    action: "set_target_phase",
+    target_phase: targetPhase,
+    hold: true,
+    green_time: AUTO_TARGET_GREEN_TIME_MS,
+    source: "automatic_camera",
+    timestamp: new Date().toISOString()
+  };
+
+  mqttClient.publish(`${MQTT_TOPIC_PREFIX}/command`, JSON.stringify(mqttCommand));
+
+  lastAutomaticTargetPhase = targetPhase;
+  lastAutomaticCommandTime = now;
+
+  latestData.decision = {
+    mode: "automatic",
+    target_phase: targetPhase,
+    green_time: AUTO_TARGET_GREEN_TIME_MS,
+    timestamp: mqttCommand.timestamp
+  };
+
+  io.emit("decisionUpdate", latestData.decision);
+  console.log("Automatic target-phase command sent:", mqttCommand);
 }
 
 // =========================
@@ -114,14 +200,10 @@ mqttClient.on("reconnect", () => {
 
 mqttClient.on("message", (topic, message) => {
   const payload = safeJsonParse(topic, message);
-
-  if (!payload) {
-    return;
-  }
+  if (!payload) return;
 
   console.log("MQTT message:", topic, payload);
 
-  // ESP32 publishes current traffic light status here
   if (topic === `${MQTT_TOPIC_PREFIX}/status`) {
     markEsp32Online();
 
@@ -136,7 +218,6 @@ mqttClient.on("message", (topic, message) => {
     return;
   }
 
-  // ESP32 publishes heartbeat here
   if (topic === `${MQTT_TOPIC_PREFIX}/heartbeat`) {
     markEsp32Online();
 
@@ -150,25 +231,43 @@ mqttClient.on("message", (topic, message) => {
     return;
   }
 
-  // Python YOLO/camera script publishes vehicle count here
   if (topic === `${MQTT_TOPIC_PREFIX}/camera`) {
-    latestData.camera = payload;
+    latestData.camera = {
+      vehicle_count: payload.vehicle_count || {
+        1: 0,
+        2: 0,
+        3: 0,
+        4: 0
+      },
+      control_logic: payload.control_logic || {},
+      adas_status: payload.adas_status || {},
+      timestamp: payload.timestamp || new Date().toISOString()
+    };
 
-    io.emit("cameraUpdate", payload);
+    if (payload.control_logic?.current_phase) {
+      latestData.camera_current_phase = payload.control_logic.current_phase;
+    }
+
+    if (payload.control_logic?.target_phase) {
+      latestData.camera_target_phase = payload.control_logic.target_phase;
+    }
+
+    latestData.timestamp = payload.timestamp || new Date().toISOString();
+
+    handleAutomaticCameraTarget(payload);
+
+    io.emit("cameraUpdate", latestData.camera);
     broadcastUpdate();
     return;
   }
 
-  // Python controller can publish its decision reason here
   if (topic === `${MQTT_TOPIC_PREFIX}/decision`) {
     latestData.decision = payload;
-
     io.emit("decisionUpdate", payload);
     broadcastUpdate();
     return;
   }
 
-  // Optional alert topic
   if (topic === `${MQTT_TOPIC_PREFIX}/alert`) {
     io.emit("trafficAlert", payload);
     return;
@@ -179,16 +278,11 @@ mqttClient.on("message", (topic, message) => {
 // ESP32 OFFLINE CHECK
 // =========================
 setInterval(() => {
-  if (!lastHeartbeatTime) {
-    return;
-  }
+  if (!lastHeartbeatTime) return;
 
   const timeSinceLastHeartbeat = Date.now() - lastHeartbeatTime;
 
-  if (
-    timeSinceLastHeartbeat > ESP32_TIMEOUT_MS &&
-    latestData.esp32_status !== "offline"
-  ) {
+  if (timeSinceLastHeartbeat > ESP32_TIMEOUT_MS && latestData.esp32_status !== "offline") {
     latestData.esp32_status = "offline";
     broadcastUpdate();
     console.log("ESP32 is offline");
@@ -212,14 +306,27 @@ app.post("/api/command", (req, res) => {
     });
   }
 
-  const allowedModes = ["normal", "two_way", "all_red", "emergency"];
+  command.action = String(command.action).trim();
+  if (command.value) command.value = String(command.value).trim().toLowerCase();
+
+  console.log("Received command:", command);
+
+  const allowedModes = ["normal", "two_way", "all_red", "emergency", "automatic"];
 
   if (command.action === "set_mode") {
     if (!allowedModes.includes(command.value)) {
       return res.status(400).json({
         success: false,
-        error: "Invalid mode. Use normal, two_way, all_red, or emergency."
+        error: "Invalid mode. Use normal, two_way, all_red, emergency, or automatic."
       });
+    }
+
+    dashboardMode = command.value;
+    latestData.mode = dashboardMode;
+
+    if (dashboardMode !== "automatic") {
+      lastAutomaticTargetPhase = null;
+      lastAutomaticCommandTime = 0;
     }
   } else if (command.action === "set_priority") {
     const road = Number(command.road);
@@ -250,14 +357,19 @@ app.post("/api/command", (req, res) => {
     timestamp: new Date().toISOString()
   };
 
-  mqttClient.publish(
-    `${MQTT_TOPIC_PREFIX}/command`,
-    JSON.stringify(mqttCommand)
-  );
+  // Automatic is a server-side mode. ESP32 only receives set_target_phase from camera data.
+  const shouldPublishToEsp32 = !(command.action === "set_mode" && command.value === "automatic");
+
+  if (shouldPublishToEsp32) {
+    mqttClient.publish(`${MQTT_TOPIC_PREFIX}/command`, JSON.stringify(mqttCommand));
+  }
+
+  broadcastUpdate();
 
   res.json({
     success: true,
-    sent: mqttCommand
+    sent: mqttCommand,
+    published_to_esp32: shouldPublishToEsp32
   });
 });
 
