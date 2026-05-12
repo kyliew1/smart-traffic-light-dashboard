@@ -1,5 +1,8 @@
 require("dotenv").config();
 
+const fs = require("fs");
+const path = require("path");
+
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -68,6 +71,50 @@ let latestData = {
   decision: null,
   timestamp: null
 };
+
+const SNAPSHOT_TOPIC = "robot/camera/snapshot";
+
+mqttClient.on("connect", () => {
+  console.log("Connected to MQTT broker");
+
+  // Subscribe to normal traffic / YOLO topics
+  mqttClient.subscribe(`${MQTT_TOPIC_PREFIX}/#`, { qos: 1 }, (err) => {
+    if (err) {
+      console.error(`Failed to subscribe to ${MQTT_TOPIC_PREFIX}/#:`, err);
+    } else {
+      console.log(`Subscribed to: ${MQTT_TOPIC_PREFIX}/#`);
+    }
+  });
+});
+
+let latestSnapshotUrl = null;
+
+function handleCameraSnapshot(imageBuffer) {
+  try {
+    const uploadsDir = path.join(__dirname, "uploads");
+
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir);
+      console.log("uploads folder created");
+    }
+
+    const filename = `camera_snapshot_${Date.now()}.jpg`;
+    const filepath = path.join(uploadsDir, filename);
+
+    fs.writeFileSync(filepath, imageBuffer);
+
+    latestSnapshotUrl = `/uploads/${filename}`;
+
+    console.log("Snapshot saved:", latestSnapshotUrl);
+
+    io.emit("cameraSnapshot", {
+      imageUrl: latestSnapshotUrl,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("Failed to save snapshot:", err);
+  }
+}
 
 // =========================
 // HELPER FUNCTIONS
@@ -199,6 +246,14 @@ mqttClient.on("reconnect", () => {
 });
 
 mqttClient.on("message", (topic, message) => {
+  // 1. Intercept Snapshot (Binary JPEG) BEFORE trying to parse JSON
+  if (topic === SNAPSHOT_TOPIC) {
+    console.log("Snapshot topic received");
+    handleCameraSnapshot(message);
+    return;
+  }
+
+  // 2. Safely parse JSON for all other topics
   const payload = safeJsonParse(topic, message);
   if (!payload) return;
 
@@ -233,12 +288,7 @@ mqttClient.on("message", (topic, message) => {
 
   if (topic === `${MQTT_TOPIC_PREFIX}/camera`) {
     latestData.camera = {
-      vehicle_count: payload.vehicle_count || {
-        1: 0,
-        2: 0,
-        3: 0,
-        4: 0
-      },
+      vehicle_count: payload.vehicle_count || { 1: 0, 2: 0, 3: 0, 4: 0 },
       control_logic: payload.control_logic || {},
       adas_status: payload.adas_status || {},
       timestamp: payload.timestamp || new Date().toISOString()

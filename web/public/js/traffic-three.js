@@ -44,10 +44,10 @@ controls.enablePan = true;
 controls.panSpeed = 0.5;
 
 controls.enableZoom = true;
-controls.zoomSpeed = 0.3;
+controls.zoomSpeed = 0.1;
 
-controls.minDistance = 4;
-controls.maxDistance = 25;
+controls.minDistance = 7;
+controls.maxDistance = 16;
 
 controls.target.set(0, 0, 0);
 controls.update();

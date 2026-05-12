@@ -85,6 +85,66 @@
   </script>
 
   <style>
+    html:not(.dark) body {
+    background: #f6f7fb;
+    color: #111827;
+    }
+
+    html:not(.dark) nav {
+      background: rgba(255, 255, 255, 0.85);
+      border-bottom-color: rgba(15, 23, 42, 0.12);
+    }
+
+    html:not(.dark) aside {
+      background: rgba(241, 245, 249, 0.95);
+      border-right-color: rgba(15, 23, 42, 0.12);
+    }
+
+    html:not(.dark) .glass-card {
+      background: rgba(255, 255, 255, 0.9);
+      border-color: rgba(15, 23, 42, 0.12);
+    }
+
+    html:not(.dark) .text-on-surface,
+    html:not(.dark) .text-on-background {
+      color: #111827;
+    }
+
+    html:not(.dark) .text-on-surface-variant {
+      color: #475569;
+    }
+
+    html:not(.dark) .bg-surface,
+    html:not(.dark) .bg-surface-container,
+    html:not(.dark) .bg-surface-container-low,
+    html:not(.dark) .bg-surface-container-high,
+    html:not(.dark) .bg-surface-container-highest {
+      background-color: #ffffff;
+    }
+
+    html:not(.dark) .bg-surface-container-lowest {
+      background-color: #e5e7eb;
+    }
+
+    html:not(.dark) .border-outline-variant\/20,
+    html:not(.dark) .border-outline-variant\/30 {
+      border-color: rgba(15, 23, 42, 0.15);
+    }
+
+    html:not(.dark) .mode-button {
+      background: #ffffff;
+      color: #111827;
+    }
+
+    html:not(.dark) .mode-button.active {
+      background: #dbeafe;
+      color: #1e3a8a;
+      border-color: #2563eb;
+    }
+
+    html:not(.dark) .text-primary {
+      color: #2563eb;
+    }
     .glass-card {
       background: rgba(29, 31, 40, 0.72);
       backdrop-filter: blur(12px);
@@ -147,12 +207,6 @@
       <div class="font-headline-md text-headline-md font-bold text-primary tracking-tight">
         TRAFFIC COMMAND
       </div>
-
-      <div class="hidden md:flex gap-6 items-center">
-        <a class="text-primary font-bold border-b-2 border-primary pb-1 hover:bg-white/5 hover:text-primary transition-colors" href="#">Dashboard</a>
-        <a class="text-on-surface-variant font-medium hover:bg-white/5 hover:text-primary transition-colors" href="#visionPanel">Analytics</a>
-        <a class="text-on-surface-variant font-medium hover:bg-white/5 hover:text-primary transition-colors" href="#feedPanel">Logs</a>
-      </div>
     </div>
 
     <div class="flex items-center gap-4">
@@ -170,8 +224,6 @@
           <span class="material-symbols-outlined">contrast</span>
         </button>
 
-        <button class="p-2 text-on-surface-variant hover:text-primary transition-colors" onclick="addFeed('SYS', 'Settings button clicked')">
-          <span class="material-symbols-outlined">settings</span>
         </button>
       </div>
     </div>
@@ -186,7 +238,7 @@
     <div class="flex-1 flex flex-col gap-2">
       <a class="flex items-center gap-3 px-4 py-3 bg-secondary-container text-on-secondary-container font-bold rounded-lg transition-transform hover:bg-surface-container-highest" href="#">
         <span class="material-symbols-outlined">map</span>
-        <span class="font-label-caps text-label-caps">Map View</span>
+        <span class="font-label-caps text-label-caps">Digital Twin</span>
       </a>
 
       <a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest rounded-lg transition-all duration-200" href="#intersectionPanel">
