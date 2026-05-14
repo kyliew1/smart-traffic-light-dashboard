@@ -57,7 +57,7 @@ listener 1883 0.0.0.0
 allow_anonymous false
 password_file passwd.txt
 ```
-**3. Create the MQTT User
+**3. Create the MQTT User**
 Open your terminal (or Command Prompt as Administrator on Windows), navigate to your Mosquitto installation folder, and run the password utility to create the credentials expected by the ESP32 and Node server:
 ```bash
 mosquitto_passwd -c passwd.txt esp32user
@@ -67,7 +67,7 @@ mosquitto_passwd -c passwd.txt esp32user
 * **To delete a user:** Use the `-D` flag (e.g., `mosquitto_passwd -D passwd.txt esp32user`).
 
 
-**4. Start the Broker
+**4. Start the Broker**
 Run the broker using your new configuration file:
 ```Bash
 mosquitto -c mosquitto.conf -v
