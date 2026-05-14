@@ -1,4 +1,24 @@
-web/node_modules/
+# Dependencies
 node_modules/
-*.log
+web/node_modules/
+
+# Environment files
 .env
+web/.env
+
+# Runtime uploads / camera snapshots
+web/uploads/
+uploads/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Build / archive files
+*.zip
