@@ -1,28 +1,33 @@
-# Smart Traffic Dashboard
+# Smart Traffic Light Dashboard
 
-This project contains:
-- ESP32 MQTT client code
-- Node.js dashboard backend
-- HTML frontend dashboard
+A real-time smart traffic light dashboard for Makerthon 2026.  
+The system connects YOLO-based camera detection, an MQTT broker, an ESP32 traffic-light controller, and a browser-based digital twin dashboard.
 
-## Folder structure
-- `esp32/` → Arduino ESP32 code
-- `dashboard/` or `web/` → Node.js backend and website
+## Features
 
-## Run dashboard
-```bash
-npm install
-node server.js
+- Real-time ESP32 traffic light status
+- MQTT communication between ESP32, camera logic, and dashboard
+- YOLO vehicle count display
+- Automatic traffic phase decision support
+- Emergency / accident detection mode
+- Live camera snapshot display
+- 3D digital twin intersection using Three.js
+- Manual control modes:
+  - Normal
+  - Two-way opposing
+  - All-red safety stop
+  - Emergency flashing red
+  - AI / automatic mode
 
-### 3. Create a `.gitignore`
-This prevents upload of unnecessary files:
+## Project Structure
 
-```gitignore
-node_modules/
-.env
-.DS_Store
-*.log
-
-### 4. Run the broker and host website
-mosquitto.exe -c mosquitto.conf -v (on terminal1) 
-npm start (on termial2)
+```text
+smart-traffic-light-dashboard/
+├── esp32/                 # ESP32 Arduino code
+├── web/                   # Node.js backend and frontend dashboard
+│   ├── public/            # HTML, CSS, JS, 3D scene
+│   ├── server.js          # Express + Socket.IO + MQTT bridge
+│   ├── package.json
+│   └── .env.example
+├── .gitignore
+└── README.md
