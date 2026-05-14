@@ -22,3 +22,7 @@ node_modules/
 .env
 .DS_Store
 *.log
+
+### 4. Run the broker and host website
+mosquitto.exe -c mosquitto.conf -v (on terminal1) 
+npm start (on termial2)
