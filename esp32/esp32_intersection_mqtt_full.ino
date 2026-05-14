@@ -40,8 +40,8 @@ const int MQTT_PORT = 1883;
 
 const char* MQTT_CLIENT_ID = "ESP32IntersectionController";
 
-const char* MQTT_USERNAME = "esp32user";
-const char* MQTT_PASSWORD = "esp32pass";
+const char* MQTT_USERNAME = "MQTT_USERNAME";
+const char* MQTT_PASSWORD = "MQTT_PASSWORD";
 
 const char* MQTT_TOPIC_PREFIX = "traffic/intersection1";
 
