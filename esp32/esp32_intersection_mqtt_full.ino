@@ -26,8 +26,8 @@
 // =======================================================
 // WIFI CONFIG
 // =======================================================
-const char* WIFI_SSID = "ONE 8138";
-const char* WIFI_PASSWORD = "p88F3{22";
+const char* WIFI_SSID = "WIFI_NAME";
+const char* WIFI_PASSWORD = "WIFI_PASSWORD";
 
 // =======================================================
 // MQTT CONFIG
@@ -35,7 +35,7 @@ const char* WIFI_PASSWORD = "p88F3{22";
 // Use your computer's IPv4 address here.
 // Do NOT use "localhost" on ESP32.
 // Example: const char* MQTT_SERVER = "192.168.1.25";
-const char* MQTT_SERVER = "192.168.137.1";
+const char* MQTT_SERVER = "xxx";
 const int MQTT_PORT = 1883;
 
 const char* MQTT_CLIENT_ID = "ESP32IntersectionController";
