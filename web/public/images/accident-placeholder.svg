@@ -1,0 +1,9 @@
+<svg width="800" height="450" viewBox="0 0 800 450" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="450" fill="#111827"/>
+  <circle cx="400" cy="180" r="70" fill="#dc2626"/>
+  <path d="M400 105 L470 245 H330 Z" fill="#facc15"/>
+  <text x="400" y="210" text-anchor="middle" font-size="72" font-family="Arial" font-weight="bold" fill="#111827">!</text>
+  <text x="400" y="330" text-anchor="middle" font-size="36" font-family="Arial" font-weight="bold" fill="#ffffff">
+    Accident Snapshot Pending
+  </text>
+</svg>

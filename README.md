@@ -36,7 +36,7 @@ smart-traffic-light-dashboard/
 
 ### Prerequisites
 * Mosquitto MQTT Broker installed and running.
-* Node.js (v16+)
+* Node.js 18 or newer
 * Arduino IDE (with ESP32 board manager, PubSubClient, and ArduinoJson libraries).
 
 ###  MQTT Broker Setup (Mosquitto)
