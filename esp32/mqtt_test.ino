@@ -4,13 +4,13 @@
 // =======================
 // WiFi settings
 // =======================
-const char* ssid = "HONOR X9d";
-const char* password = "ndkc1392";
+const char* ssid = "WIFI_NAME";
+const char* password = "WIFI_PASSWORD";
 
 // =======================
 // MQTT broker settings
 // =======================
-const char* mqtt_server = "10.175.39.206";  
+const char* mqtt_server = "xxx";  
 const int mqtt_port = 1883;
 
 // =======================
