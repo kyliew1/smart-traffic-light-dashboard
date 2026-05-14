@@ -223,8 +223,6 @@
         <button class="p-2 text-on-surface-variant hover:text-primary transition-colors" onclick="toggleTheme()">
           <span class="material-symbols-outlined">contrast</span>
         </button>
-
-        </button>
       </div>
     </div>
   </nav>
@@ -295,7 +293,7 @@
 
         <div class="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant/30 shadow-sm">
           <span class="material-symbols-outlined text-sm text-tertiary">schedule</span>
-          <span class="font-label-caps text-label-caps text-on-surface" id="timestampDisplay">-</span>
+          
         </div>
       </div>
     </header>
@@ -306,7 +304,7 @@
         <div class="flex justify-between items-center mb-4 z-10">
           <h2 class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
             <span class="material-symbols-outlined text-primary">3d_rotation</span>
-            Digital Twin
+            3D View
           </h2>
 
           <span class="font-data-mono text-data-mono text-on-surface-variant" id="digitalTwinStatus">Ready</span>
@@ -315,9 +313,9 @@
         <div class="flex-1 w-full min-h-[500px] rounded-lg bg-surface-container-lowest border border-outline-variant/20 relative overflow-hidden" id="three-scene"></div>
       </div>
 
-      <div class="lg:col-span-3 flex flex-col gap-6">
+      <div class="lg:col-span-4 flex flex-col gap-6">
 
-        <div id="adasPanel" class="glass-card rounded-xl p-5 shadow-lg border-l-4 border-outline-variant" id="adasCard">
+        <div id="adasPanel" class="glass-card rounded-xl p-5 shadow-lg border-l-4 border-outline-variant">
           <h3 class="font-label-caps text-label-caps text-on-surface-variant mb-4 flex items-center gap-2">
             <span class="material-symbols-outlined text-error">gpp_maybe</span>
             ADAS Alerts
@@ -333,7 +331,7 @@
               <span class="font-data-mono text-data-mono text-on-surface">Near Miss</span>
               <span class="px-2 py-1 bg-surface-container rounded text-primary font-label-caps text-[10px]" id="nearMissStatus">Clear</span>
             </div>
-
+            
             <div class="p-3 bg-surface-container-highest rounded-lg border border-outline-variant/20">
               <div class="font-label-caps text-label-caps text-on-surface-variant mb-1">Recommended Action</div>
               <div id="recommendationText" class="font-data-mono text-data-mono text-on-surface">
@@ -415,6 +413,21 @@
       </div>
 
       <div id="visionPanel" class="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="glass-card rounded-xl p-5 shadow-lg flex flex-col min-h-[360px]">
+          <h3 class="font-label-caps text-label-caps text-on-surface-variant mb-4 flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary">photo_camera</span>
+            Live YOLO Vision
+          </h3>
+
+          <div class="flex-1 bg-surface-container-lowest rounded-lg border border-outline-variant/20 flex flex-col items-center justify-center overflow-hidden min-h-[260px] relative">
+            <img id="live-snapshot" src="" alt="Waiting for camera feed..." class="object-contain w-full h-full max-h-[320px]" onerror="this.style.display='none'" onload="this.style.display='block'" style="display: none;" />
+            <div id="snapshot-placeholder" class="flex flex-col items-center justify-center gap-2 text-on-surface-variant">
+              <span class="material-symbols-outlined text-4xl text-primary">photo_camera</span>
+              <p class="font-data-mono text-data-mono"></p>
+            </div>
+            <p id="snapshot-time" class="absolute bottom-2 left-2 bg-black/60 px-2 py-1 rounded text-[10px] font-data-mono text-white backdrop-blur-sm"></p>
+          </div>
+        </div>
 
         <div class="glass-card rounded-xl p-5 shadow-lg">
           <h3 class="font-label-caps text-label-caps text-on-surface-variant mb-4 flex items-center gap-2">
@@ -464,7 +477,7 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-3 mt-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
             <div class="bg-surface-container-highest p-3 rounded-lg border border-outline-variant/20">
               <div class="font-label-caps text-label-caps text-on-surface-variant">Camera Current Phase</div>
               <div id="cameraCurrentPhase" class="font-data-mono text-data-mono text-on-surface">-</div>
@@ -476,19 +489,19 @@
             </div>
           </div>
         </div>
+      </div>
 
-        <div id="feedPanel" class="glass-card rounded-xl p-5 shadow-lg flex flex-col h-full max-h-[420px]">
-          <h3 class="font-label-caps text-label-caps text-on-surface-variant mb-4 flex items-center gap-2">
-            <span class="material-symbols-outlined text-tertiary">list_alt</span>
-            Intelligence Feed
-          </h3>
+      <div id="feedPanel" class="lg:col-span-12 glass-card rounded-xl p-5 shadow-lg flex flex-col h-full max-h-[420px]">
+        <h3 class="font-label-caps text-label-caps text-on-surface-variant mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined text-tertiary">list_alt</span>
+          Intelligence Feed
+        </h3>
 
-          <div id="intelligenceFeed" class="feed-scroll flex-1 overflow-y-auto pr-2 space-y-3 font-data-mono text-data-mono">
-            <div class="flex gap-3 text-on-surface border-b border-outline-variant/10 pb-2">
-              <span class="text-outline">--:--:--</span>
-              <span class="text-primary">[SYS]</span>
-              <span>Dashboard initialized.</span>
-            </div>
+        <div id="intelligenceFeed" class="feed-scroll flex-1 overflow-y-auto pr-2 space-y-3 font-data-mono text-data-mono">
+          <div class="flex gap-3 text-on-surface border-b border-outline-variant/10 pb-2">
+            <span class="text-outline">--:--:--</span>
+            <span class="text-primary">[SYS]</span>
+            <span>Dashboard initialized.</span>
           </div>
         </div>
       </div>
@@ -723,6 +736,10 @@
       lastNearMissState = nearMissWarning;
 
       updateRecommendation(camera);
+
+      if (window.updateTrafficCars) {
+      window.updateTrafficCars(camera);
+    }
     }
 
     function updateDashboard(data) {
@@ -818,7 +835,23 @@
 
     socket.on("cameraUpdate", (camera) => {
       updateCameraDisplay(camera);
+    });socket.on("cameraSnapshot", (data) => {
+      const snapshotImg = document.getElementById("live-snapshot");
+      const snapshotTime = document.getElementById("snapshot-time");
+
+        if (snapshotImg && data.imageUrl) {
+        snapshotImg.style.display = "block";
+        snapshotImg.src = `${data.imageUrl}?t=${Date.now()}`;
+        }
+      
+        if (snapshotTime) {
+         const date = new Date(data.timestamp);
+          snapshotTime.innerText = `Updated: ${date.toLocaleTimeString()}`;
+        }
+
+        addFeed("CV", "Camera snapshot received.");
     });
+    // -----------------------------
 
     socket.on("trafficAlert", (alert) => {
       const type = alert.type === "danger" ? "ERR" : alert.type === "warning" ? "CV" : "SYS";

@@ -12,10 +12,6 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static("public"));
-app.use(express.json());
-app.get("/favicon.ico", (req, res) => res.status(204).end());
-
 // =========================
 // CONFIG
 // =========================
@@ -26,14 +22,35 @@ const MQTT_USERNAME = process.env.MQTT_USERNAME || "";
 const MQTT_PASSWORD = process.env.MQTT_PASSWORD || "";
 const MQTT_TOPIC_PREFIX = process.env.MQTT_TOPIC_PREFIX || "traffic/intersection1";
 
+const SNAPSHOT_TOPIC = process.env.SNAPSHOT_TOPIC || "robot/camera/snapshot";
+
 const ESP32_TIMEOUT_MS = Number(process.env.ESP32_TIMEOUT_MS || 10000);
 const AUTO_PHASE_COMMAND_COOLDOWN_MS = Number(process.env.AUTO_PHASE_COMMAND_COOLDOWN_MS || 2000);
 const AUTO_TARGET_GREEN_TIME_MS = Number(process.env.AUTO_TARGET_GREEN_TIME_MS || 8000);
 
 // =========================
+// EXPRESS SETUP
+// =========================
+const uploadsDir = path.join(__dirname, "uploads");
+
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log("uploads folder created");
+}
+
+app.use(express.static(path.join(__dirname, "public")));
+app.use("/uploads", express.static(uploadsDir));
+app.use(express.json({ limit: "10mb" }));
+
+app.get("/favicon.ico", (req, res) => res.status(204).end());
+
+// =========================
 // MQTT CONNECTION
 // =========================
-const mqttOptions = {};
+const mqttOptions = {
+  reconnectPeriod: 2000,
+};
+
 if (MQTT_USERNAME) mqttOptions.username = MQTT_USERNAME;
 if (MQTT_PASSWORD) mqttOptions.password = MQTT_PASSWORD;
 
@@ -46,6 +63,7 @@ let dashboardMode = "normal";
 let lastHeartbeatTime = null;
 let lastAutomaticTargetPhase = null;
 let lastAutomaticCommandTime = 0;
+let latestSnapshotUrl = null;
 
 let latestData = {
   esp32_status: "offline",
@@ -69,52 +87,25 @@ let latestData = {
     timestamp: null
   },
   decision: null,
+  latest_snapshot_url: null,
   timestamp: null
 };
 
-const SNAPSHOT_TOPIC = "robot/camera/snapshot";
+// =========================
+// SOCKET.IO
+// =========================
+io.on("connection", (socket) => {
+  console.log("Dashboard connected with socket:", socket.id);
 
-mqttClient.on("connect", () => {
-  console.log("Connected to MQTT broker");
+  socket.emit("trafficUpdate", latestData);
 
-  // Subscribe to normal traffic / YOLO topics
-  mqttClient.subscribe(`${MQTT_TOPIC_PREFIX}/#`, { qos: 1 }, (err) => {
-    if (err) {
-      console.error(`Failed to subscribe to ${MQTT_TOPIC_PREFIX}/#:`, err);
-    } else {
-      console.log(`Subscribed to: ${MQTT_TOPIC_PREFIX}/#`);
-    }
-  });
-});
-
-let latestSnapshotUrl = null;
-
-function handleCameraSnapshot(imageBuffer) {
-  try {
-    const uploadsDir = path.join(__dirname, "uploads");
-
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir);
-      console.log("uploads folder created");
-    }
-
-    const filename = `camera_snapshot_${Date.now()}.jpg`;
-    const filepath = path.join(uploadsDir, filename);
-
-    fs.writeFileSync(filepath, imageBuffer);
-
-    latestSnapshotUrl = `/uploads/${filename}`;
-
-    console.log("Snapshot saved:", latestSnapshotUrl);
-
-    io.emit("cameraSnapshot", {
+  if (latestSnapshotUrl) {
+    socket.emit("cameraSnapshot", {
       imageUrl: latestSnapshotUrl,
       timestamp: new Date().toISOString(),
     });
-  } catch (err) {
-    console.error("Failed to save snapshot:", err);
   }
-}
+});
 
 // =========================
 // HELPER FUNCTIONS
@@ -133,7 +124,6 @@ function safeJsonParse(topic, message) {
     return JSON.parse(message.toString());
   } catch (err) {
     console.error("Invalid JSON from topic:", topic);
-    console.error("Message:", message.toString());
     return null;
   }
 }
@@ -178,6 +168,86 @@ function normalizeTargetPhase(targetPhase) {
   return aliases[phase] || null;
 }
 
+function isAllFlashingRedPhase(value) {
+  if (!value) return false;
+
+  const normalized = String(value)
+    .trim()
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .replaceAll("-", " ");
+
+  return (
+    normalized === "all flashing red mode" ||
+    normalized === "all flashing red" ||
+    normalized === "flashing red" ||
+    normalized === "emergency flash"
+  );
+}
+
+function publishEsp32Command(command) {
+  const topic = `${MQTT_TOPIC_PREFIX}/command`;
+  mqttClient.publish(topic, JSON.stringify(command), { qos: 1 }, (err) => {
+    if (err) {
+      console.error("Failed to publish ESP32 command:", err.message);
+    } else {
+      console.log("Published ESP32 command:", topic, command);
+    }
+  });
+}
+
+function emitAccidentAlert(payload) {
+  const controlLogic = payload.control_logic || {};
+
+  io.emit("trafficAlert", {
+    type: "danger",
+    message: "Accident detected. Switching to all flashing red mode.",
+    details: `Current phase: ${controlLogic.current_phase || "-"}`
+  });
+
+  io.emit("accidentAlert", {
+    type: "ACCIDENT",
+    message: "Accident detected. Switching to all flashing red mode.",
+    location: payload.alert?.location || "Main intersection",
+    timestamp: payload.timestamp || new Date().toISOString(),
+    current_phase: controlLogic.current_phase || "all flashing red mode",
+    imageUrl: latestSnapshotUrl || "/images/accident-placeholder.svg"
+  });
+}
+
+function handleCameraSnapshot(imageBuffer) {
+  try {
+    console.log("handleCameraSnapshot() called. Size:", imageBuffer.length, "bytes");
+
+    if (!imageBuffer || imageBuffer.length === 0) {
+      console.warn("Snapshot ignored because image buffer is empty");
+      return;
+    }
+
+    const filename = `camera_snapshot_${Date.now()}.jpg`;
+    const filepath = path.join(uploadsDir, filename);
+
+    fs.writeFileSync(filepath, imageBuffer);
+
+    latestSnapshotUrl = `/uploads/${filename}`;
+    latestData.latest_snapshot_url = latestSnapshotUrl;
+
+    console.log("Snapshot saved:", latestSnapshotUrl);
+    console.log("Emitting cameraSnapshot to dashboard...");
+
+    io.emit("cameraSnapshot", {
+      imageUrl: latestSnapshotUrl,
+      timestamp: new Date().toISOString(),
+    });
+
+    console.log("cameraSnapshot emitted");
+
+    broadcastUpdate();
+  } catch (err) {
+    console.error("Failed to save or emit snapshot:", err);
+  }
+}
+
 function handleAutomaticCameraTarget(payload) {
   if (dashboardMode !== "automatic") return;
 
@@ -192,7 +262,6 @@ function handleAutomaticCameraTarget(payload) {
   const now = Date.now();
   const cooldownReady = now - lastAutomaticCommandTime >= AUTO_PHASE_COMMAND_COOLDOWN_MS;
 
-  // Send if target changed, or repeat occasionally so ESP32 keeps holding the target.
   const shouldSend = targetPhase !== lastAutomaticTargetPhase || cooldownReady;
   if (!shouldSend) return;
 
@@ -205,7 +274,7 @@ function handleAutomaticCameraTarget(payload) {
     timestamp: new Date().toISOString()
   };
 
-  mqttClient.publish(`${MQTT_TOPIC_PREFIX}/command`, JSON.stringify(mqttCommand));
+  publishEsp32Command(mqttCommand);
 
   lastAutomaticTargetPhase = targetPhase;
   lastAutomaticCommandTime = now;
@@ -221,16 +290,79 @@ function handleAutomaticCameraTarget(payload) {
   console.log("Automatic target-phase command sent:", mqttCommand);
 }
 
+function handleCameraPayload(payload) {
+  latestData.camera = {
+    vehicle_count: payload.vehicle_count || { 1: 0, 2: 0, 3: 0, 4: 0 },
+    control_logic: payload.control_logic || {},
+    adas_status: payload.adas_status || {},
+    timestamp: payload.timestamp || new Date().toISOString()
+  };
+
+  const controlLogic = payload.control_logic || {};
+  const adasStatus = payload.adas_status || {};
+
+  if (controlLogic.current_phase) {
+    latestData.camera_current_phase = controlLogic.current_phase;
+  }
+
+  if (controlLogic.target_phase) {
+    latestData.camera_target_phase = controlLogic.target_phase;
+  }
+
+  latestData.timestamp = payload.timestamp || new Date().toISOString();
+
+  const accidentDetected =
+    adasStatus.accident_detected === true ||
+    isAllFlashingRedPhase(controlLogic.current_phase) ||
+    isAllFlashingRedPhase(controlLogic.target_phase);
+
+  if (accidentDetected) {
+    dashboardMode = "emergency";
+    latestData.mode = "emergency";
+
+    const emergencyCommand = {
+      action: "set_mode",
+      value: "emergency",
+      mode: "all flashing red mode",
+      current_phase: "all flashing red mode",
+      target_phase: "all flashing red mode",
+      reason: "accident_detected",
+      timestamp: new Date().toISOString()
+    };
+
+    publishEsp32Command(emergencyCommand);
+    emitAccidentAlert(payload);
+  } else {
+    handleAutomaticCameraTarget(payload);
+  }
+
+  io.emit("cameraUpdate", latestData.camera);
+  broadcastUpdate();
+}
+
 // =========================
 // MQTT EVENTS
 // =========================
 mqttClient.on("connect", () => {
-  console.log("Connected to Mosquitto");
+  console.log("Connected to MQTT broker");
 
-  const topic = `${MQTT_TOPIC_PREFIX}/#`;
-  mqttClient.subscribe(topic);
+  const trafficTopic = `${MQTT_TOPIC_PREFIX}/#`;
 
-  console.log("Subscribed to:", topic);
+  mqttClient.subscribe(trafficTopic, { qos: 1 }, (err) => {
+    if (err) {
+      console.error(`Failed to subscribe to ${trafficTopic}:`, err);
+    } else {
+      console.log(`Subscribed to: ${trafficTopic}`);
+    }
+  });
+
+  mqttClient.subscribe(SNAPSHOT_TOPIC, { qos: 1 }, (err) => {
+    if (err) {
+      console.error(`Failed to subscribe to ${SNAPSHOT_TOPIC}:`, err);
+    } else {
+      console.log(`Subscribed to: ${SNAPSHOT_TOPIC}`);
+    }
+  });
 });
 
 mqttClient.on("error", (err) => {
@@ -246,18 +378,20 @@ mqttClient.on("reconnect", () => {
 });
 
 mqttClient.on("message", (topic, message) => {
-  // 1. Intercept Snapshot (Binary JPEG) BEFORE trying to parse JSON
+  console.log("MQTT message received from:", topic);
+
+  // IMPORTANT:
+  // Snapshot is binary JPEG, not JSON. Handle it before JSON.parse().
   if (topic === SNAPSHOT_TOPIC) {
     console.log("Snapshot topic received");
     handleCameraSnapshot(message);
     return;
   }
 
-  // 2. Safely parse JSON for all other topics
   const payload = safeJsonParse(topic, message);
   if (!payload) return;
 
-  console.log("MQTT message:", topic, payload);
+  console.log("MQTT JSON message:", topic, payload);
 
   if (topic === `${MQTT_TOPIC_PREFIX}/status`) {
     markEsp32Online();
@@ -287,27 +421,7 @@ mqttClient.on("message", (topic, message) => {
   }
 
   if (topic === `${MQTT_TOPIC_PREFIX}/camera`) {
-    latestData.camera = {
-      vehicle_count: payload.vehicle_count || { 1: 0, 2: 0, 3: 0, 4: 0 },
-      control_logic: payload.control_logic || {},
-      adas_status: payload.adas_status || {},
-      timestamp: payload.timestamp || new Date().toISOString()
-    };
-
-    if (payload.control_logic?.current_phase) {
-      latestData.camera_current_phase = payload.control_logic.current_phase;
-    }
-
-    if (payload.control_logic?.target_phase) {
-      latestData.camera_target_phase = payload.control_logic.target_phase;
-    }
-
-    latestData.timestamp = payload.timestamp || new Date().toISOString();
-
-    handleAutomaticCameraTarget(payload);
-
-    io.emit("cameraUpdate", latestData.camera);
-    broadcastUpdate();
+    handleCameraPayload(payload);
     return;
   }
 
@@ -344,6 +458,30 @@ setInterval(() => {
 // =========================
 app.get("/api/status", (req, res) => {
   res.json(latestData);
+});
+
+app.get("/api/latest-snapshot", (req, res) => {
+  res.json({
+    imageUrl: latestSnapshotUrl,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Use this to test Socket.IO from the browser:
+// http://localhost:3000/test-snapshot-event
+app.get("/test-snapshot-event", (req, res) => {
+  const imageUrl = latestSnapshotUrl || "/images/accident-placeholder.svg";
+
+  io.emit("cameraSnapshot", {
+    imageUrl,
+    timestamp: new Date().toISOString(),
+  });
+
+  res.json({
+    success: true,
+    message: "cameraSnapshot emitted",
+    imageUrl
+  });
 });
 
 app.post("/api/command", (req, res) => {
@@ -407,11 +545,10 @@ app.post("/api/command", (req, res) => {
     timestamp: new Date().toISOString()
   };
 
-  // Automatic is a server-side mode. ESP32 only receives set_target_phase from camera data.
   const shouldPublishToEsp32 = !(command.action === "set_mode" && command.value === "automatic");
 
   if (shouldPublishToEsp32) {
-    mqttClient.publish(`${MQTT_TOPIC_PREFIX}/command`, JSON.stringify(mqttCommand));
+    publishEsp32Command(mqttCommand);
   }
 
   broadcastUpdate();
@@ -430,4 +567,5 @@ server.listen(PORT, () => {
   console.log(`Web dashboard running at http://localhost:${PORT}`);
   console.log(`MQTT URL: ${MQTT_URL}`);
   console.log(`MQTT topic prefix: ${MQTT_TOPIC_PREFIX}`);
+  console.log(`Snapshot topic: ${SNAPSHOT_TOPIC}`);
 });
