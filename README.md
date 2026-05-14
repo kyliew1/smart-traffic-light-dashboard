@@ -3,8 +3,7 @@
 
 A real-time, digital-twin smart traffic light system. This project integrates a YOLO-based computer vision pipeline, a Mosquitto MQTT broker, an ESP32 hardware controller, and a browser-based 3D digital twin dashboard built with Three.js.
 
-![Dashboard Preview](<img width="1810" height="821" alt="image" src="https://github.com/user-attachments/assets/3561369a-1c54-4769-8baf-a0e2f0db4e81" />
-)
+<img width="1810" height="821" alt="Dashboard Preview" src="https://github.com/user-attachments/assets/3561369a-1c54-4769-8baf-a0e2f0db4e81" />
 
 ##  Key Features
 * **Real-Time 3D Digital Twin:** Built with Three.js to mirror physical intersection states.
