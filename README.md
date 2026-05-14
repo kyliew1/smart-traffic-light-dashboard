@@ -39,7 +39,7 @@ smart-traffic-light-dashboard/
 * Node.js (v16+)
 * Arduino IDE (with ESP32 board manager, PubSubClient, and ArduinoJson libraries).
 
-### 📡 MQTT Broker Setup (Mosquitto)
+###  MQTT Broker Setup (Mosquitto)
 
 This project relies on Eclipse Mosquitto to route messages between the camera pipeline, the Node.js backend, and the ESP32 hardware. The hardware is configured to require authentication.
 
